@@ -1,0 +1,63 @@
+---
+title: "Assignment 2"
+author: "ZOU, Huiting"
+date: '2023-07-22'
+output:
+  html_document:
+    df_print: paged
+---
+
+## Question 1
+
+To test for cross sectional dependence, since in this panel dataset, N is large while T is 8, choose to run the Pesaran CD test.
+
+```{r Pesaran}
+library(foreign)
+Pta <- read.dta('Poe and Tate APSR 1994.dta')
+library(plm)
+Pta.plm <- pdata.frame(Pta, index = c('ccode', 'year'), drop.index = TRUE, row.names = TRUE)
+# The Breusch-Pagan test is subject to large size distortions in large N, finite T
+res <- plm(vanhdemo ~ pcgnp + left + lpop + iwar + milctr2 + britinfl, data = Pta.plm, model = 'within', index = c("ccode"))
+pcdtest(res, test = 'cd')
+```
+
+According to the test results, the null hypothesis is rejected, there exists cross-sectional dependence.
+
+And to test for the autocorrelation, while the Wooldridge-Drukker Test performs well in most sample sizes, so use the Wooldridge-Drukker Test.
+
+```{r woold}
+# the Wooldridge-Drukker Test
+pwartest(vanhdemo ~ pcgnp + left + lpop + iwar + milctr2 + britinfl, data = Pta.plm, type = 'HC3', cluster = c('group'))
+```
+
+According to the test results, the null hypothesis is rejected, there exists temporal dependence.
+
+## Question 2
+
+In this panel data, there are 1224 observations, while N = 153, T = 8. So N is large while T is relatively small. The Breusch-Pagan test is subject to large size distortions in large N, finite T, so run Pesaran CD test to test for cross sectional dependence.
+
+And while the Wooldridge-Drukker Test performs well in most sample sizes, so use Wooldridge-Drukker Test to test for autocorrelation.
+
+## Question 3
+
+Since FGLS cannot be used unless T ≫ N , use PCSEs. Firstly, run OLS regression and get the results as follows.
+In this dataset, there're obsevations with missing values in outcome varaible vanhdemo, so exclude these observations first.
+```{r pcse}
+library(pcse)
+# drop missing values
+Pta.1 <- Pta[!is.na(Pta$vanhdemo), ]
+# generate lagged vanhdemo
+ols <- lm(vanhdemo ~ pcgnp + left + lpop + iwar + milctr2 + britinfl, data = Pta.1)
+# export regression results
+knitr::kable(summary(ols)$coefficients, format = "markdown", file = "ols.md")
+```
+
+Then run PCSE.
+
+```{r import}
+ pcse <- pcse(ols, groupN = Pta.1$ccode, groupT = Pta.1$year) 
+ knitr::kable(summary(pcse)$coefficients, format = "markdown", file = "pcse.md")
+
+```
+
+According to the regression results, we can see the estimate for intercept and variables is the same in both OLS and PCSEs. However, the standard error is different. For the intercept and left,lpop iwar milctr2 britinfl, the standard error in OLS is larger, while only for pcgnp, the standard error in PCSEs is larger.
